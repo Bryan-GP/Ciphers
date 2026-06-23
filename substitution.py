@@ -2,11 +2,11 @@
 import random
 
 def generate_key(): # key_generation
-    nums = [i for i in range(33,126)]
+    nums = [i for i in range(32,126)]
     for i in range(len(nums) - 1, 0, -1):
         j = random.randint(0, i)
         nums[i], nums[j] = nums[j], nums[i]
-    return dict(zip(range(33, 126), nums))
+    return dict(zip(range(32, 126), nums))
 
 
 def encrypt(s, key): #text -> cipher_text
