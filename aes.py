@@ -150,8 +150,6 @@ class AES:
         return plaintext.decode("utf-8")
 
 
-
-## AES-128-CTR works(192 and 256 doesnt work yet)
 plaintext = input("give me a text to encrypt \n")
 keyoption = input("[1] 128\n[2] 192\n[3] 256\n\n")
 keyint = 1 if keyoption.isdigit() == False else keyoption

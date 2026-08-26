@@ -12,12 +12,12 @@ This is primarily a personal learning repository — the code is intended for ed
 
 ## Current status
 
-- aes.py: Implements an AES-like cipher with AES-128 in CTR mode working end-to-end (interactive CLI). See notes below about 192/256-bit support.
+- aes.py: Implements an AES-like cipher with AES-128/192/256 in CTR mode working end-to-end (interactive CLI). See notes below for details and usage.
 - Other ciphers and experiments may be added over time as the project evolves.
 
 Notes from the implementation:
-- AES-128-CTR works and is the main tested path in the provided script.
-- AES-192 and AES-256 paths are present in the key expansion logic but stated as "doesn't work yet" in the script header — use 128-bit for reliable results.
+- AES-128/192/256-CTR are implemented and tested in the script; the interactive prompt lets you choose the desired key size.
+- Key expansion, rounds, and mode-of-operation code support 128, 192 and 256-bit keys. It's still recommended to validate with known test vectors for full confidence.
 
 ## How the project is being built
 
@@ -77,7 +77,7 @@ Important: The current `encrypt` method returns a hex string that concatenates t
 
 - Tests: There are no automated tests in the repository yet. Adding test vectors (NIST test vectors or comparison against a library) is recommended to validate correctness.
 - Future work ideas:
-  - Fix and validate AES-192 and AES-256 key expansion and round logic.
+  - Validate AES implementations against NIST test vectors (128, 192, 256) and add more modes (ECB/CBC/GCM) for comparison.
   - Add ECB/CBC/GCM implementations or wrapper usage with authenticated encryption.
   - Add unit tests with known test vectors.
   - Add comparison scripts that assert equivalence with PyCryptodome outputs.
