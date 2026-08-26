@@ -43,22 +43,27 @@ class AES:
     def _generate_random_token(self, bytes: int=16) -> Bytes16: #AES-128 default
         return secrets.token_bytes(bytes)
 
-    def _expand_key(self, k: Bytes16) -> list[Bytes16]: # [k1, k2, ..., kN-1]
-        keys = [k[i : i + 4] for i in range(0, 16, 4)] # inital_key = k
-        i = 4
-        total_words = (self.bits_to_rounds[len(k) * 8] + 1) * 4
-        while len(keys) != total_words:
-            if i % 4 == 0:
-                rottedWord = self._rotWord(keys[i-1])
+    def _expand_key(self, k: bytes, bits: int) -> list[bytes]: 
+        Nk = bits // 32  # 4, 6, or 8
+        keys = [k[i : i + 4] for i in range(0, len(k), 4)] 
+        i = Nk
+        total_words = (self.bits_to_rounds[bits] + 1) * 4
+        
+        while len(keys) < total_words:
+            temp = keys[i-1]
+            if i % Nk == 0:
+                rottedWord = self._rotWord(temp)
                 subbedWord = self._subBytes(rottedWord) 
-                reconned = self._roundConst(subbedWord, i // 4) 
-                keys.append(self._xOrBlock(keys[i-4], reconned))
-                i += 1
-                continue
-            keys.append(self._xOrBlock(keys[i-4], keys[i-1]))
+                temp = self._roundConst(subbedWord, i // Nk) 
+            elif Nk == 8 and i % Nk == 4:
+                # AES-256 requires this extra non-linear substitution
+                temp = self._subBytes(temp)
+                
+            keys.append(self._xOrBlock(keys[i - Nk], temp))
             i += 1
-        keys[:] = [b"".join(keys[i : i + 4]) for i in range(0, len(keys), 4)]
-        return keys
+            
+        # Group the flat list of 4-byte words into 16-byte round keys
+        return [b"".join(keys[i : i + 4]) for i in range(0, len(keys), 4)]
 
     def _rotWord(self, word: Bytes4) -> Bytes4:
         return word[1:] + word[:1]
@@ -78,7 +83,7 @@ class AES:
 
     def _ctr_operation(self, plaintext: bytes, nonce: Bytes8, key: Bytes16, bits: int) -> str: #AES-CTR
         c_text = b""
-        expanded_key = self._expand_key(key) 
+        expanded_key = self._expand_key(key, bits) 
         p_blocks = self._makeBlocks(plaintext, self.BLOCKSIZE)
         for counter, block in enumerate(p_blocks):
             counter_bytes = counter.to_bytes(self.NONCE_CTR_SIZE, byteorder='big')
@@ -148,11 +153,26 @@ class AES:
 
 ## AES-128-CTR works(192 and 256 doesnt work yet)
 plaintext = input("give me a text to encrypt \n")
-aes_ctr_128 = AES()
-cipher = aes_ctr_128.encrypt(plaintext, 256)
-key = aes_ctr_128._master_key
-input(f'{cipher}\n\n press anything to decrypt\n')
-print(aes_ctr_128.decrypt(cipher, key))
+keyoption = input("[1] 128\n[2] 192\n[3] 256\n\n")
+keyint = 1 if keyoption.isdigit() == False else keyoption
+keysize = 256 if keyoption == 3 else 192 if keyoption == 2 else 128
+aes_ctr = AES()
+cipher = aes_ctr.encrypt(plaintext, keysize)
+key = aes_ctr._master_key
+ciphertext_bytes = bytes.fromhex(cipher)
+nonce = ciphertext_bytes[:aes_ctr.NONCE_CTR_SIZE]
+cont = "c"
+while cont != "d" or cont != "":
+    cont = input(f'\n\npress [k] to view key \npress [c] to see ciphertext \npress [n] to see nonce \npress [d] or anything else to decrypt\n:\n')
+    if cont == "k":
+        print(f"{key.hex()}")
+    elif cont == "c":
+        print(f"{ciphertext_bytes.hex()}")
+    elif cont == "n":
+        print(f"{nonce.hex()}")
+    else:
+        break
+print(f"decrypted message: {aes_ctr.decrypt(cipher, key, keysize)}")
 
 
 
