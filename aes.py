@@ -56,7 +56,7 @@ class AES:
                 subbedWord = self._subBytes(rottedWord) 
                 temp = self._roundConst(subbedWord, i // Nk) 
             elif Nk == 8 and i % Nk == 4:
-                # AES-256 requires this extra non-linear substitution
+                # AES-256 needs this extra non-linear substitution
                 temp = self._subBytes(temp)
                 
             keys.append(self._xOrBlock(keys[i - Nk], temp))
