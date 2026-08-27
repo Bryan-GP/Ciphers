@@ -3,6 +3,7 @@
 import random
 
 
+
 #ASCII Set
 upper = 126
 lower = 32

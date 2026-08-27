@@ -1,21 +1,9 @@
+from Symmetric_Ciphers.ciphers import Symmetric
 
-
-import secrets
-from typing import Annotated
-Bytes16 = Annotated[bytes, 16]
-Bytes8 = Annotated[bytes, 8]
-Bytes4 = Annotated[bytes, 4]
-
-
-class AES: 
+class AES(Symmetric): 
     def __init__(self):
         self.rounds = 10 # 10 rounds by default
-        self.mode = 'ctr' # ctr by default for now
-        self.NONCE_CTR_SIZE = 8 #bytes
         self.BLOCKSIZE = 16  #bytes
-        self.plaintext = ""
-        self.ciphertext = b""
-        self._master_key = b""
         self.bits_to_bytes = {128: 16, 192: 24, 256: 32}
         self.bits_to_rounds = {128: 10, 192: 12, 256: 14}
         self.MUL_02 = [((i << 1) ^ 0x1B) & 0xFF if (i & 0x80) else (i << 1) & 0xFF for i in range(256)]
@@ -40,9 +28,6 @@ class AES:
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 ]
 
-    def _generate_random_token(self, bytes: int=16) -> Bytes16: #AES-128 default
-        return secrets.token_bytes(bytes)
-
     def _expand_key(self, k: bytes, bits: int) -> list[bytes]: 
         Nk = bits // 32  # 4, 6, or 8
         keys = [k[i : i + 4] for i in range(0, len(k), 4)] 
@@ -56,44 +41,29 @@ class AES:
                 subbedWord = self._subBytes(rottedWord) 
                 temp = self._roundConst(subbedWord, i // Nk) 
             elif Nk == 8 and i % Nk == 4:
-                # AES-256 needs this extra non-linear substitution
+                # AES-256 needs this extra substitution
                 temp = self._subBytes(temp)
                 
-            keys.append(self._xOrBlock(keys[i - Nk], temp))
+            keys.append(self._xOrBits(keys[i - Nk], temp))
             i += 1
             
         # Group the flat list of 4-byte words into 16-byte round keys
         return [b"".join(keys[i : i + 4]) for i in range(0, len(keys), 4)]
 
-    def _rotWord(self, word: Bytes4) -> Bytes4:
+    def _rotWord(self, word: bytes) -> bytes:
         return word[1:] + word[:1]
 
-    def _subBytes(self, state): #-> Bytes16 || Bytes4
+    def _subBytes(self, state): #-> bytes || bytes
         return bytes(self.SBOX[byte] for byte in state)
 
-    def _roundConst(self, word: Bytes4, i: int) -> Bytes4: 
+    def _roundConst(self, word: bytes, i: int) -> bytes: 
         rcon_word = bytes([self.ROUND_CONSTS[i], 0, 0, 0])
-        return self._xOrBlock(word, rcon_word)
+        return self._xOrBits(word, rcon_word)
 
-    def _makeBlocks(self, p: bytes, bytes=16) -> list[Bytes16]:
-        return [p[i : i + bytes] for i in range(0, len(p), bytes)]
-
-    def _xOrBlock(self, x, y): #-> Bytes16 || Bytes4
+    def _xOrBlock(self, x, y): #-> bytes || bytes
         return bytes(a ^ b for a, b in zip(x, y))
-
-    def _ctr_operation(self, plaintext: bytes, nonce: Bytes8, key: Bytes16, bits: int) -> str: #AES-CTR
-        c_text = b""
-        expanded_key = self._expand_key(key, bits) 
-        p_blocks = self._makeBlocks(plaintext, self.BLOCKSIZE)
-        for counter, block in enumerate(p_blocks):
-            counter_bytes = counter.to_bytes(self.NONCE_CTR_SIZE, byteorder='big')
-            nonce_input = nonce + counter_bytes
-            encrypted_nonce = self._aes_encrypt(nonce_input, expanded_key, bits) 
-            cipher_block = self._xOrBlock(encrypted_nonce, block)
-            c_text += cipher_block
-        return c_text
     
-    def _aes_encrypt(self, plaintext: Bytes16, expanded_key: list[Bytes16], bits: int=128) -> Bytes16:
+    def _aes_encrypt(self, plaintext: bytes, expanded_key: list[bytes], bits: int=128) -> bytes:
         self.rounds = self.bits_to_rounds[bits]
         c_text_i = self._addRoundKey(plaintext, expanded_key[0])
         for i in range(1,self.rounds):
@@ -109,7 +79,7 @@ class AES:
     def _addRoundKey(self, b, k):
         return self._xOrBlock(b, k)
 
-    def _shiftRows(self, state: Bytes16) -> Bytes16: 
+    def _shiftRows(self, state: bytes) -> bytes: 
         return bytes([
             state[0], state[5], state[10], state[15],
             state[4], state[9], state[14], state[3],
@@ -117,7 +87,7 @@ class AES:
             state[12], state[1], state[6], state[11]
         ])
 
-    def _mixCol(self, state: Bytes16) -> Bytes16:
+    def _mixCol(self, state: bytes) -> bytes:
         # Process state as 4 distinct columns
         mutable_state = bytearray(state)
         for i in range(0, 16, 4):
@@ -132,47 +102,4 @@ class AES:
         r2 = c[0] ^ c[1] ^ self.MUL_02[c[2]] ^ self.MUL_03[c[3]]
         r3 = self.MUL_03[c[0]] ^ c[1] ^ c[2] ^ self.MUL_02[c[3]]
         return [r0, r1, r2, r3]
-
-    def encrypt(self, plaintext, bits=128):
-        plaintext_bytes = plaintext.encode("utf-8")
-        nonce = self._generate_random_token(self.NONCE_CTR_SIZE)
-        key = self._generate_random_token(self.bits_to_bytes[bits])
-        self._master_key = key
-        ciphertext = self._ctr_operation(plaintext_bytes, nonce, key, bits)
-        return (nonce + ciphertext).hex()
-
-    def decrypt(self, ciphertext, key, bits=128):
-        ciphertext_bytes = bytes.fromhex(ciphertext)
-        nonce = ciphertext_bytes[:self.NONCE_CTR_SIZE]
-        actual_ciphertext = ciphertext_bytes[self.NONCE_CTR_SIZE:]
-        plaintext = self._ctr_operation(actual_ciphertext, nonce, key, bits)
-        self._master_key = b""
-        return plaintext.decode("utf-8")
-
-
-plaintext = input("give me a text to encrypt \n")
-keyoption = input("[1] 128\n[2] 192\n[3] 256\n\n")
-keyint = 1 if keyoption.isdigit() == False else keyoption
-keysize = 256 if keyoption == 3 else 192 if keyoption == 2 else 128
-aes_ctr = AES()
-cipher = aes_ctr.encrypt(plaintext, keysize)
-key = aes_ctr._master_key
-ciphertext_bytes = bytes.fromhex(cipher)
-nonce = ciphertext_bytes[:aes_ctr.NONCE_CTR_SIZE]
-cont = "c"
-while cont != "d" or cont != "":
-    cont = input(f'\n\npress [k] to view key \npress [c] to see ciphertext \npress [n] to see nonce \npress [d] or anything else to decrypt\n:\n')
-    if cont == "k":
-        print(f"{key.hex()}")
-    elif cont == "c":
-        print(f"{ciphertext_bytes.hex()}")
-    elif cont == "n":
-        print(f"{nonce.hex()}")
-    else:
-        break
-print(f"decrypted message: {aes_ctr.decrypt(cipher, key, keysize)}")
-
-
-
-
 
