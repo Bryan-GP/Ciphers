@@ -1,4 +1,6 @@
-from Symmetric_Ciphers.ciphers import Symmetric
+
+
+from Symmetric_Ciphers.symmetric import Symmetric
 
 class AES(Symmetric): 
     def __init__(self):
@@ -60,10 +62,10 @@ class AES(Symmetric):
         rcon_word = bytes([self.ROUND_CONSTS[i], 0, 0, 0])
         return self._xOrBits(word, rcon_word)
 
-    def _xOrBlock(self, x, y): #-> bytes || bytes
+    def _xOrBits(self, x, y) -> bytes: #-> bytes || bytes
         return bytes(a ^ b for a, b in zip(x, y))
     
-    def _aes_encrypt(self, plaintext: bytes, expanded_key: list[bytes], bits: int=128) -> bytes:
+    def encrypt(self, plaintext: bytes, expanded_key: list[bytes], bits: int=128) -> bytes:
         self.rounds = self.bits_to_rounds[bits]
         c_text_i = self._addRoundKey(plaintext, expanded_key[0])
         for i in range(1,self.rounds):
@@ -76,8 +78,11 @@ class AES(Symmetric):
         c_text_i = self._addRoundKey(shiftedRows, expanded_key[self.rounds])
         return c_text_i
 
+    def decrypt():
+        pass
+
     def _addRoundKey(self, b, k):
-        return self._xOrBlock(b, k)
+        return self._xOrBits(b, k)
 
     def _shiftRows(self, state: bytes) -> bytes: 
         return bytes([
